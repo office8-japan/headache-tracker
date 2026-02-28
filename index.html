@@ -11,29 +11,32 @@
         body { font-family: 'Inter', sans-serif; }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen pb-10">
+<body class="bg-gray-50 min-h-screen pb-10 text-gray-800">
 
-    <header class="bg-indigo-600 text-white p-4 shadow-lg mb-6">
+    <header class="bg-indigo-600 text-white p-4 shadow-lg mb-6 text-center">
         <div class="max-w-2xl mx-auto flex justify-between items-center">
             <h1 class="text-xl font-bold">🤕 頭痛記録ノート</h1>
-            <span id="currentDate" class="text-sm opacity-80"></span>
+            <span id="currentDate" class="text-sm opacity-90"></span>
         </div>
     </header>
 
     <main class="max-w-2xl mx-auto px-4 space-y-6">
         
         <section class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h2 class="text-lg font-semibold mb-4 text-gray-700">今の状況を記録</h2>
+            <h2 class="text-lg font-semibold mb-4 border-b pb-2">今の状況を記録</h2>
             <form id="headacheForm" class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-600 mb-1">痛みの強さ (1-10)</label>
-                    <input type="range" id="intensity" min="1" max="10" value="5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
-                    <div class="flex justify-between text-xs text-gray-500 px-1 mt-1">
-                        <span>弱</span><span>中</span><span>強</span>
+                    <label class="block text-sm font-medium text-gray-600 mb-2">痛みの強さ (1-5)</label>
+                    <input type="range" id="intensity" min="1" max="5" value="3" step="1" 
+                           class="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                    <div class="flex justify-between text-xs text-gray-500 mt-2 font-bold px-1">
+                        <span class="text-blue-500">1:かすかな痛み</span>
+                        <span class="text-yellow-600">3:普通</span>
+                        <span class="text-red-500">5:動けない</span>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-2 gap-4 mt-6">
                     <div>
                         <label class="block text-sm font-medium text-gray-600 mb-1">部位</label>
                         <select id="location" class="w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2 bg-white">
@@ -54,69 +57,86 @@
 
                 <div>
                     <label class="block text-sm font-medium text-gray-600 mb-1">メモ</label>
-                    <textarea id="memo" rows="2" class="w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2" placeholder="睡眠不足、天候など..."></textarea>
+                    <textarea id="memo" rows="2" class="w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2" placeholder="睡眠不足、天候、ストレスなど..."></textarea>
                 </div>
 
-                <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition duration-200">
+                <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition duration-200 active:scale-95 shadow-md">
                     記録を保存する
                 </button>
             </form>
         </section>
 
         <section class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h2 class="text-lg font-semibold mb-4 text-gray-700">痛みの推移</h2>
-            <canvas id="headacheChart" height="150"></canvas>
+            <h2 class="text-lg font-semibold mb-4 border-b pb-2">痛みの推移 (直近7回)</h2>
+            <div class="h-48">
+                <canvas id="headacheChart"></canvas>
+            </div>
         </section>
 
         <section>
             <h2 class="text-lg font-semibold mb-3 text-gray-700">最近の記録</h2>
             <div id="historyList" class="space-y-3">
                 </div>
-            <button id="clearData" class="mt-6 text-sm text-red-500 hover:underline w-full text-center">データをすべて消去</button>
+            
+            <button id="clearData" class="mt-8 text-sm text-red-400 hover:text-red-600 hover:underline w-full text-center">
+                データをすべて消去する
+            </button>
         </section>
 
     </main>
 
     <script>
-        // 日付表示
-        document.getElementById('currentDate').innerText = new Date().toLocaleDateString('ja-JP');
+        // 今日の日付を表示
+        document.getElementById('currentDate').innerText = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
 
+        // LocalStorageからデータを読み込む
         let records = JSON.parse(localStorage.getItem('headacheRecords')) || [];
         let myChart;
 
-        // 保存処理
+        // フォーム送信時の処理
         document.getElementById('headacheForm').addEventListener('submit', (e) => {
             e.preventDefault();
+            
             const newRecord = {
                 id: Date.now(),
                 date: new Date().toLocaleString('ja-JP', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'}),
-                intensity: document.getElementById('intensity').value,
+                intensity: parseInt(document.getElementById('intensity').value),
                 location: document.getElementById('location').value,
                 medication: document.getElementById('medication').value,
                 memo: document.getElementById('memo').value
             };
+
+            // 配列の先頭に追加
             records.unshift(newRecord);
+            // 保存
             localStorage.setItem('headacheRecords', JSON.stringify(records));
+            
             updateUI();
-            e.target.reset();
+            e.target.reset(); // フォームをリセット
         });
 
-        // UI更新
+        // UI（一覧とグラフ）を更新する関数
         function updateUI() {
             const list = document.getElementById('historyList');
             list.innerHTML = '';
             
+            if (records.length === 0) {
+                list.innerHTML = '<p class="text-center text-gray-400 py-4">まだ記録がありません</p>';
+            }
+
             records.forEach(r => {
                 const div = document.createElement('div');
-                div.className = "bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center";
+                div.className = "bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-start";
                 div.innerHTML = `
-                    <div>
-                        <div class="text-xs text-gray-400">${r.date}</div>
-                        <div class="font-bold text-gray-700">${r.location} - 強さ ${r.intensity}</div>
-                        <div class="text-sm text-gray-500">${r.memo || 'メモなし'}</div>
+                    <div class="flex-1">
+                        <div class="text-[10px] text-gray-400 font-bold uppercase">${r.date}</div>
+                        <div class="font-bold text-gray-800 text-md mt-1">${r.location} / 強さ: ${r.intensity}</div>
+                        <div class="text-sm text-gray-500 mt-1">${r.memo || 'メモなし'}</div>
                     </div>
-                    <div class="px-3 py-1 rounded-full text-xs font-semibold ${r.medication === 'あり' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">
-                        薬:${r.medication}
+                    <div class="ml-2">
+                        <span class="px-2 py-1 rounded-full text-[10px] font-bold ${r.medication === 'あり' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}">
+                            薬:${r.medication}
+                        </span>
                     </div>
                 `;
                 list.appendChild(div);
@@ -125,42 +145,58 @@
             updateChart();
         }
 
-        // グラフ更新
+        // グラフを描画・更新する関数
         function updateChart() {
             const ctx = document.getElementById('headacheChart').getContext('2d');
-            const data = [...records].reverse().slice(-7); // 直近7件
+            const displayData = [...records].reverse().slice(-7); // 最新の7件を時系列で表示
 
-            if (myChart) myChart.destroy();
+            if (myChart) myChart.destroy(); // 既存のグラフがあれば削除
+            
             myChart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: data.map(r => r.date),
+                    labels: displayData.map(r => r.date.split(' ')[0]), // 日付のみ表示
                     datasets: [{
                         label: '痛みの強さ',
-                        data: data.map(r => r.intensity),
+                        data: displayData.map(r => r.intensity),
                         borderColor: '#4f46e5',
                         backgroundColor: 'rgba(79, 70, 229, 0.1)',
                         fill: true,
-                        tension: 0.4
+                        tension: 0.4,
+                        pointRadius: 5,
+                        pointBackgroundColor: '#4f46e5'
                     }]
                 },
                 options: {
-                    scales: { y: { min: 0, max: 10 } },
-                    plugins: { legend: { display: false } }
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { 
+                        y: { 
+                            min: 0, 
+                            max: 5, 
+                            ticks: { stepSize: 1, font: { size: 10 } }
+                        },
+                        x: {
+                            ticks: { font: { size: 10 } }
+                        }
+                    },
+                    plugins: { 
+                        legend: { display: false }
+                    }
                 }
             });
         }
 
-        // 消去処理
+            // 全消去ボタンの処理
         document.getElementById('clearData').addEventListener('click', () => {
-            if(confirm('すべての記録を消去しますか？')) {
+            if(confirm('今までの記録がすべて消えます。本当によろしいですか？')) {
                 localStorage.removeItem('headacheRecords');
                 records = [];
                 updateUI();
             }
         });
 
-        // 初回読み込み
+        // 起動時にUIを表示
         updateUI();
     </script>
 </body>
