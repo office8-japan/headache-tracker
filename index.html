@@ -9,6 +9,18 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', 'sans-serif'; }
+        /* スクロールバーを少し目立たなくする設定 */
+        .scrollbar-hide::-webkit-scrollbar {
+            height: 6px;
+        }
+        .scrollbar-hide::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        .scrollbar-hide::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen pb-10 text-gray-800">
@@ -33,11 +45,11 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-600 mb-2 mt-4">痛みの強さ (1-5)</label>
-                    <input type="range" id="intensity" min="1" max="5" value="3" step="1" 
+                    <label class="block text-sm font-medium text-gray-600 mb-2 mt-4">痛みの強さ (0-5)</label>
+                    <input type="range" id="intensity" min="0" max="5" value="0" step="1" 
                            class="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
                     <div class="flex justify-between text-xs text-gray-500 mt-2 font-bold px-1">
-                        <span class="text-blue-500">1:かすか</span>
+                        <span class="text-green-500">0:なし</span>
                         <span class="text-yellow-600">3:普通</span>
                         <span class="text-red-500">5:動けない</span>
                     </div>
@@ -47,6 +59,7 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-600 mb-1">部位</label>
                         <select id="location" class="w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2 bg-white">
+                            <option>なし</option>
                             <option>こめかみ</option>
                             <option>後頭部</option>
                             <option>目の奥</option>
@@ -74,9 +87,15 @@
         </section>
 
         <section class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h2 class="text-lg font-semibold mb-4 border-b pb-2">痛みの推移 (直近14回)</h2>
-            <div class="h-48">
-                <canvas id="headacheChart"></canvas>
+            <div class="flex justify-between items-end mb-4 border-b pb-2">
+                <h2 class="text-lg font-semibold text-gray-700">痛みの推移</h2>
+                <span class="text-xs text-gray-400">↔ スワイプで移動</span>
+            </div>
+            
+            <div id="chartScrollArea" class="w-full overflow-x-auto scrollbar-hide pb-2">
+                <div id="chartWrapper" class="h-48" style="min-width: 100%;">
+                    <canvas id="headacheChart"></canvas>
+                </div>
             </div>
         </section>
 
@@ -93,30 +112,24 @@
     </main>
 
     <script>
-        // 今日の日付を表示
         document.getElementById('currentDate').innerText = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
 
         let records = JSON.parse(localStorage.getItem('headacheRecords')) || [];
         let myChart;
 
-        // 入力フォームの日時を「現在時刻」にセットする関数
         function setDefaultTime() {
             const now = new Date();
-            // タイムゾーンのズレを補正して、日本の現在時刻をセット
             now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
             document.getElementById('recordTime').value = now.toISOString().slice(0, 16);
         }
 
-        // フォーム送信時の処理
         document.getElementById('headacheForm').addEventListener('submit', (e) => {
             e.preventDefault();
             
-            // 入力された日時を取得
             const inputTime = new Date(document.getElementById('recordTime').value);
             
             const newRecord = {
                 id: Date.now(),
-                // グラフやリストの表示用
                 date: inputTime.toLocaleString('ja-JP', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'}),
                 timestamp: inputTime.getTime(),
                 intensity: parseInt(document.getElementById('intensity').value),
@@ -125,16 +138,14 @@
                 memo: document.getElementById('memo').value
             };
 
-            // 配列に追加してタイムスタンプ順（新しいものが上）に並び替えて保存
             records.unshift(newRecord);
             records.sort((a, b) => b.timestamp - a.timestamp);
             localStorage.setItem('headacheRecords', JSON.stringify(records));
             
             updateUI();
             
-            // フォームをリセットし、日時を現在時刻に戻す
-            document.getElementById('intensity').value = 3;
-            document.getElementById('memo').value = '';
+            // フォーム全体をリセットしてから日時を再設定
+            document.getElementById('headacheForm').reset();
             setDefaultTime();
         });
 
@@ -170,8 +181,14 @@
         function updateChart() {
             const ctx = document.getElementById('headacheChart').getContext('2d');
             
-            // グラフ用には古い順に並び替えて最新14件を取得（一番右が最新）
-            const displayData = [...records].sort((a, b) => a.timestamp - b.timestamp).slice(-14);
+            const displayData = [...records].sort((a, b) => a.timestamp - b.timestamp).slice(-30);
+
+            const chartWrapper = document.getElementById('chartWrapper');
+            if (displayData.length > 8) {
+                chartWrapper.style.minWidth = `${displayData.length * 45}px`;
+            } else {
+                chartWrapper.style.minWidth = '100%';
+            }
 
             if (myChart) myChart.destroy();
             
@@ -212,6 +229,11 @@
                     }
                 }
             });
+
+            setTimeout(() => {
+                const scrollArea = document.getElementById('chartScrollArea');
+                scrollArea.scrollLeft = scrollArea.scrollWidth;
+            }, 50);
         }
 
         document.getElementById('clearData').addEventListener('click', () => {
@@ -222,7 +244,6 @@
             }
         });
 
-        // 起動時の初期化処理
         setDefaultTime();
         updateUI();
     </script>
