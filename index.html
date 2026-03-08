@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>頭痛記録マネージャー</title>
+    <title>頭痛記録ノート</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
-        body { font-family: 'Inter', sans-serif; }
+        body { font-family: 'Inter', 'sans-serif'; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen pb-10 text-gray-800">
@@ -21,16 +21,17 @@
     </header>
 
     <main class="max-w-2xl mx-auto px-4 space-y-6">
-        
+
         <section class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
             <h2 class="text-lg font-semibold mb-4 border-b pb-2">今の状況を記録</h2>
             <form id="headacheForm" class="space-y-4">
+                
                 <div>
                     <label class="block text-sm font-medium text-gray-600 mb-2">痛みの強さ (1-5)</label>
                     <input type="range" id="intensity" min="1" max="5" value="3" step="1" 
                            class="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
                     <div class="flex justify-between text-xs text-gray-500 mt-2 font-bold px-1">
-                        <span class="text-blue-500">1:かすかな痛み</span>
+                        <span class="text-blue-500">1:かすか</span>
                         <span class="text-yellow-600">3:普通</span>
                         <span class="text-red-500">5:動けない</span>
                     </div>
@@ -40,17 +41,17 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-600 mb-1">部位</label>
                         <select id="location" class="w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2 bg-white">
-                            <option value="こめかみ">こめかみ</option>
-                            <option value="後頭部">後頭部</option>
-                            <option value="頭全体">頭全体</option>
-                            <option value="目の奥">目の奥</option>
+                            <option>こめかみ</option>
+                            <option>後頭部</option>
+                            <option>目の奥</option>
+                            <option>全体的</option>
                         </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-600 mb-1">薬の服用</label>
                         <select id="medication" class="w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2 bg-white">
-                            <option value="なし">なし</option>
-                            <option value="あり">あり</option>
+                            <option>なし</option>
+                            <option>あり</option>
                         </select>
                     </div>
                 </div>
@@ -89,7 +90,6 @@
         // 今日の日付を表示
         document.getElementById('currentDate').innerText = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
 
-        // LocalStorageからデータを読み込む
         let records = JSON.parse(localStorage.getItem('headacheRecords')) || [];
         let myChart;
 
@@ -97,29 +97,30 @@
         document.getElementById('headacheForm').addEventListener('submit', (e) => {
             e.preventDefault();
             
+            const now = new Date();
             const newRecord = {
                 id: Date.now(),
-                date: new Date().toLocaleString('ja-JP', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'}),
+                // 表示用の日時フォーマット
+                date: now.toLocaleString('ja-JP', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'}),
+                // グラフのソート等に使うタイムスタンプ
+                timestamp: now.getTime(),
                 intensity: parseInt(document.getElementById('intensity').value),
                 location: document.getElementById('location').value,
                 medication: document.getElementById('medication').value,
                 memo: document.getElementById('memo').value
             };
 
-            // 配列の先頭に追加
             records.unshift(newRecord);
-            // 保存
             localStorage.setItem('headacheRecords', JSON.stringify(records));
             
             updateUI();
-            e.target.reset(); // フォームをリセット
+            e.target.reset();
         });
 
-        // UI（一覧とグラフ）を更新する関数
         function updateUI() {
             const list = document.getElementById('historyList');
             list.innerHTML = '';
-            
+
             if (records.length === 0) {
                 list.innerHTML = '<p class="text-center text-gray-400 py-4">まだ記録がありません</p>';
             }
@@ -145,17 +146,17 @@
             updateChart();
         }
 
-        // グラフを描画・更新する関数
         function updateChart() {
             const ctx = document.getElementById('headacheChart').getContext('2d');
-            const displayData = [...records].reverse().slice(-7); // 最新の7件を時系列で表示
+            // グラフ用には古い順に並び替えて最新7件を取得
+            const displayData = [...records].sort((a, b) => a.id - b.id).slice(-7);
 
-            if (myChart) myChart.destroy(); // 既存のグラフがあれば削除
+            if (myChart) myChart.destroy();
             
             myChart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: displayData.map(r => r.date.split(' ')[0]), // 日付のみ表示
+                    labels: displayData.map(r => r.date.split(' ')[0]), // 月/日 のみ
                     datasets: [{
                         label: '痛みの強さ',
                         data: displayData.map(r => r.intensity),
@@ -187,7 +188,6 @@
             });
         }
 
-            // 全消去ボタンの処理
         document.getElementById('clearData').addEventListener('click', () => {
             if(confirm('今までの記録がすべて消えます。本当によろしいですか？')) {
                 localStorage.removeItem('headacheRecords');
