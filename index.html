@@ -45,13 +45,22 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-600 mb-2 mt-4">痛みの強さ (0-5)</label>
+                    <label class="block text-sm font-medium text-gray-600 mb-2 mt-4">痛みの強さ (0〜5の6段階)</label>
                     <input type="range" id="intensity" min="0" max="5" value="0" step="1" 
                            class="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
-                    <div class="flex justify-between text-xs text-gray-500 mt-2 font-bold px-1">
-                        <span class="text-green-500">0:なし</span>
-                        <span class="text-yellow-600">3:普通</span>
-                        <span class="text-red-500">5:動けない</span>
+                    <div class="flex justify-between text-sm text-gray-500 mt-2 font-bold px-1">
+                        <span class="flex flex-col items-center text-green-500">
+                            <span>0</span><span class="text-[10px] font-normal">なし</span>
+                        </span>
+                        <span class="flex flex-col items-center mt-0.5"><span>1</span></span>
+                        <span class="flex flex-col items-center mt-0.5"><span>2</span></span>
+                        <span class="flex flex-col items-center text-yellow-600">
+                            <span>3</span><span class="text-[10px] font-normal">普通</span>
+                        </span>
+                        <span class="flex flex-col items-center mt-0.5"><span>4</span></span>
+                        <span class="flex flex-col items-center text-red-500">
+                            <span>5</span><span class="text-[10px] font-normal">動けない</span>
+                        </span>
                     </div>
                 </div>
 
@@ -144,7 +153,6 @@
             
             updateUI();
             
-            // フォーム全体をリセットしてから日時を再設定
             document.getElementById('headacheForm').reset();
             setDefaultTime();
         });
