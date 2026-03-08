@@ -23,11 +23,17 @@
     <main class="max-w-2xl mx-auto px-4 space-y-6">
 
         <section class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h2 class="text-lg font-semibold mb-4 border-b pb-2">今の状況を記録</h2>
+            <h2 class="text-lg font-semibold mb-4 border-b pb-2">状況を記録</h2>
             <form id="headacheForm" class="space-y-4">
                 
                 <div>
-                    <label class="block text-sm font-medium text-gray-600 mb-2">痛みの強さ (1-5)</label>
+                    <label class="block text-sm font-medium text-gray-600 mb-1">発生日時</label>
+                    <input type="datetime-local" id="recordTime" required
+                           class="w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2 bg-white">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-2 mt-4">痛みの強さ (1-5)</label>
                     <input type="range" id="intensity" min="1" max="5" value="3" step="1" 
                            class="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
                     <div class="flex justify-between text-xs text-gray-500 mt-2 font-bold px-1">
@@ -68,7 +74,7 @@
         </section>
 
         <section class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h2 class="text-lg font-semibold mb-4 border-b pb-2">痛みの推移 (直近7回)</h2>
+            <h2 class="text-lg font-semibold mb-4 border-b pb-2">痛みの推移 (直近14回)</h2>
             <div class="h-48">
                 <canvas id="headacheChart"></canvas>
             </div>
@@ -93,17 +99,24 @@
         let records = JSON.parse(localStorage.getItem('headacheRecords')) || [];
         let myChart;
 
+        // 入力フォームの日時を「現在時刻」にセットする関数
+        function setDefaultTime() {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            document.getElementById('recordTime').value = now.toISOString().slice(0, 16);
+        }
+
         // フォーム送信時の処理
         document.getElementById('headacheForm').addEventListener('submit', (e) => {
             e.preventDefault();
             
-            const now = new Date();
+            // 入力された日時を取得
+            const inputTime = new Date(document.getElementById('recordTime').value);
+            
             const newRecord = {
                 id: Date.now(),
-                // 表示用の日時フォーマット
-                date: now.toLocaleString('ja-JP', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'}),
-                // グラフのソート等に使うタイムスタンプ
-                timestamp: now.getTime(),
+                date: inputTime.toLocaleString('ja-JP', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'}),
+                timestamp: inputTime.getTime(),
                 intensity: parseInt(document.getElementById('intensity').value),
                 location: document.getElementById('location').value,
                 medication: document.getElementById('medication').value,
@@ -111,10 +124,16 @@
             };
 
             records.unshift(newRecord);
+            // タイムスタンプ順（新しいものが上）に並び替えて保存
+            records.sort((a, b) => b.timestamp - a.timestamp);
             localStorage.setItem('headacheRecords', JSON.stringify(records));
             
             updateUI();
-            e.target.reset();
+            
+            // フォームをリセットし、日時を現在時刻に戻す
+            document.getElementById('intensity').value = 3;
+            document.getElementById('memo').value = '';
+            setDefaultTime();
         });
 
         function updateUI() {
@@ -130,7 +149,7 @@
                 div.className = "bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-start";
                 div.innerHTML = `
                     <div class="flex-1">
-                        <div class="text-[10px] text-gray-400 font-bold uppercase">${r.date}</div>
+                        <div class="text-[11px] text-gray-500 font-bold tracking-wide">${r.date}</div>
                         <div class="font-bold text-gray-800 text-md mt-1">${r.location} / 強さ: ${r.intensity}</div>
                         <div class="text-sm text-gray-500 mt-1">${r.memo || 'メモなし'}</div>
                     </div>
@@ -148,23 +167,24 @@
 
         function updateChart() {
             const ctx = document.getElementById('headacheChart').getContext('2d');
-            // グラフ用には古い順に並び替えて最新7件を取得
-            const displayData = [...records].sort((a, b) => a.id - b.id).slice(-7);
+            // グラフ用には古い順に並び替えて最新14件を取得（時間変化を見るため件数を増加）
+            const displayData = [...records].sort((a, b) => a.timestamp - b.timestamp).slice(-14);
 
             if (myChart) myChart.destroy();
             
             myChart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: displayData.map(r => r.date.split(' ')[0]), // 月/日 のみ
+                    // ラベルに日付と時間を表示 (例: "03/08 14:00")
+                    labels: displayData.map(r => r.date), 
                     datasets: [{
                         label: '痛みの強さ',
                         data: displayData.map(r => r.intensity),
                         borderColor: '#4f46e5',
                         backgroundColor: 'rgba(79, 70, 229, 0.1)',
                         fill: true,
-                        tension: 0.4,
-                        pointRadius: 5,
+                        tension: 0.3,
+                        pointRadius: 4,
                         pointBackgroundColor: '#4f46e5'
                     }]
                 },
@@ -178,7 +198,11 @@
                             ticks: { stepSize: 1, font: { size: 10 } }
                         },
                         x: {
-                            ticks: { font: { size: 10 } }
+                            ticks: { 
+                                font: { size: 9 },
+                                maxRotation: 45, // ラベルが重ならないように少し傾ける
+                                minRotation: 45
+                            }
                         }
                     },
                     plugins: { 
@@ -196,7 +220,8 @@
             }
         });
 
-        // 起動時にUIを表示
+        // 起動時の初期化処理
+        setDefaultTime();
         updateUI();
     </script>
 </body>
